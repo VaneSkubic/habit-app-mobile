@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:habit_app/Widgets/Post.dart';
 import 'package:http/http.dart' as http;
@@ -17,13 +16,23 @@ class Feed extends StatefulWidget {
 class _FeedState extends State<Feed> {
   final storage = const FlutterSecureStorage();
   String token = '';
+  String isAdmin = '';
   String content = 'test';
   List<dynamic> posts = [];
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    getIsAdmin();
     getPosts();
+  }
+
+  void getIsAdmin() async {
+    var returnToken = await storage.read(key: 'is_admin');
+    setState(() {
+      isAdmin = returnToken!;
+    });
   }
 
   Future<String> getToken() async {
@@ -50,6 +59,10 @@ class _FeedState extends State<Feed> {
       },
     );
 
+    setState(() {
+      isLoading = false;
+    });
+
     if (response.statusCode > 200 && response.statusCode < 300) {
       // If the server did return a 200 OK response,
       // then parse the JSON.
@@ -67,21 +80,30 @@ class _FeedState extends State<Feed> {
 
   @override
   Widget build(BuildContext context) {
-    if (posts == []) {
-      return Container(
-        child: CircularProgressIndicator(),
+    if (isLoading) {
+      return Center(
+        child: Container(
+          child: CircularProgressIndicator(),
+        ),
       );
     } else {
       return ListView.builder(
         itemCount: posts.length,
         itemBuilder: (BuildContext ctxt, int index) {
           return Post(
+            is_admin: isAdmin,
             profile: posts[index]['user']['media']['media_url'],
             first_name: posts[index]['user']['first_name'],
             last_name: posts[index]['user']['last_name'],
             caption: posts[index]['caption'],
             media: posts[index]['media']['media_url'],
             habit: posts[index]['habit']['name'],
+            post_id: posts[index]['id'],
+            remove_post: () {
+              setState(() {
+                posts.removeAt(index);
+              });
+            },
           );
         },
       );

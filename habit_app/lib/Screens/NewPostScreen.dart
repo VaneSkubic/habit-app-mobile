@@ -15,6 +15,7 @@ class _NewPostScreenState extends State<NewPostScreen> {
   final _captionController = TextEditingController();
   File? _image;
   final _imagePicker = ImagePicker();
+  bool isLoading = false;
 
   Future<String> getToken() async {
     var returnToken = await storage.read(key: 'token');
@@ -45,8 +46,14 @@ class _NewPostScreenState extends State<NewPostScreen> {
       request.headers['Accept'] = 'application/json';
       request.headers['Authorization'] = 'Bearer ' + token;
 
+      setState(() {
+        isLoading = true;
+      });
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
+      setState(() {
+        isLoading = false;
+      });
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         print('Post sent successfully');
@@ -130,32 +137,34 @@ class _NewPostScreenState extends State<NewPostScreen> {
                   },
                 ),
                 SizedBox(height: 16.0),
-                ElevatedButton(
-                  child: Text('Send'),
-                  onPressed: () {
-                    if (_image == null) {
-                      showDialog(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return AlertDialog(
-                            title: Text('Error'),
-                            content: Text('You must pick an image.'),
-                            actions: <Widget>[
-                              TextButton(
-                                child: Text('Ok'),
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                },
-                              ),
-                            ],
-                          );
+                isLoading
+                    ? CircularProgressIndicator()
+                    : ElevatedButton(
+                        child: Text('Send'),
+                        onPressed: () {
+                          if (_image == null) {
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  title: Text('Error'),
+                                  content: Text('You must pick an image.'),
+                                  actions: <Widget>[
+                                    TextButton(
+                                      child: Text('Ok'),
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                            return;
+                          }
+                          _sendPost(_captionController.text, _image!);
                         },
-                      );
-                      return;
-                    }
-                    _sendPost(_captionController.text, _image!);
-                  },
-                ),
+                      ),
               ],
             ),
           ),

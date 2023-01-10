@@ -1,7 +1,10 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/src/widgets/container.dart';
 import 'package:flutter/src/widgets/framework.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class Post extends StatelessWidget {
   final profile;
@@ -10,6 +13,9 @@ class Post extends StatelessWidget {
   final caption;
   final media;
   final habit;
+  final is_admin;
+  final post_id;
+  final remove_post;
 
   const Post({
     super.key,
@@ -19,7 +25,42 @@ class Post extends StatelessWidget {
     required this.caption,
     required this.media,
     required this.habit,
+    required this.is_admin,
+    required this.post_id,
+    required this.remove_post,
   });
+
+  final storage = const FlutterSecureStorage();
+
+  Future<String> getToken() async {
+    var returnToken = await storage.read(key: 'token');
+    if (returnToken != null) {
+      return returnToken;
+    } else {
+      return '';
+    }
+  }
+
+  void deletePost(int post_id) async {
+    var token = await getToken();
+
+    final response = await http.delete(
+      Uri.parse('https://habit.gnus.co.uk/api/posts/$post_id'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode > 200 && response.statusCode < 300) {
+      // If the server did return a 200 OK response,
+      // then parse the JSON.
+      var data = jsonDecode(response.body);
+    } else {
+      var data = jsonDecode(response.body);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +87,18 @@ class Post extends StatelessWidget {
                 CircleAvatar(backgroundImage: NetworkImage(profile)),
                 SizedBox(width: 10),
                 Text(first_name + ' ' + last_name),
+                SizedBox(
+                  width: 10,
+                ),
+                is_admin == '1'
+                    ? ElevatedButton(
+                        child: Icon(Icons.delete),
+                        onPressed: () {
+                          remove_post();
+                          deletePost(post_id);
+                        },
+                      )
+                    : Container(),
               ],
             ),
             SizedBox(height: 30),

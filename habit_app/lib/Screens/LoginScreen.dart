@@ -19,6 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   String _email = '';
   String _password = '';
   String content = '';
+  bool isLoading = false;
 
   final storage = new FlutterSecureStorage();
 
@@ -27,11 +28,15 @@ class _LoginScreenState extends State<LoginScreen> {
   final emailFocus = FocusNode();
   final passwordFocus = FocusNode();
 
-  Future setToken(String token) async {
+  Future setToken(String token, int is_admin) async {
     await storage.write(key: 'token', value: token);
+    await storage.write(key: 'is_admin', value: is_admin.toString());
   }
 
   void login() async {
+    setState(() {
+      isLoading = true;
+    });
     final response = await http.post(
       Uri.parse('https://habit.gnus.co.uk/api/login'),
       headers: {
@@ -43,12 +48,16 @@ class _LoginScreenState extends State<LoginScreen> {
         "password": "$_password"
       }''',
     );
+    setState(() {
+      isLoading = false;
+    });
 
     if (response.statusCode > 200 && response.statusCode < 300) {
       // If the server did return a 200 OK response,
       // then parse the JSON.
       var data = jsonDecode(response.body);
-      await setToken(data['token']);
+
+      await setToken(data['token'], data['user']['is_admin']);
       _email = '';
       _password = '';
       emailText.clear();
@@ -108,12 +117,14 @@ class _LoginScreenState extends State<LoginScreen> {
               onChanged: (value) => _password = value != null ? value : '',
             ),
             SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                login();
-              },
-              child: Text('Login'),
-            ),
+            isLoading
+                ? CircularProgressIndicator()
+                : ElevatedButton(
+                    onPressed: () {
+                      login();
+                    },
+                    child: Text('Login'),
+                  ),
             TextButton(
               onPressed: () {
                 Navigator.of(context).push(

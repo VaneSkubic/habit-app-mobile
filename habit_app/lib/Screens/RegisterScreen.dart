@@ -25,6 +25,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String _username = '';
   String content = '';
 
+  bool isLoading = false;
+
   final storage = new FlutterSecureStorage();
 
   Future setToken(String token) async {
@@ -32,6 +34,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void register() async {
+    setState(() {
+      isLoading = true;
+    });
     final response = await http.post(
       Uri.parse('https://habit.gnus.co.uk/api/register'),
       headers: {
@@ -47,6 +52,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         "username": "$_username"
       }''',
     );
+    setState(() {
+      isLoading = false;
+    });
 
     if (response.statusCode > 200 && response.statusCode < 300) {
       // If the server did return a 200 OK response,
@@ -144,12 +152,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   onChanged: (value) =>
                       _passwordConf = value != null ? value : '',
                 ),
-                ElevatedButton(
-                  onPressed: () {
-                    register();
-                  },
-                  child: Text('Register'),
-                ),
+                isLoading
+                    ? CircularProgressIndicator()
+                    : ElevatedButton(
+                        onPressed: () {
+                          register();
+                        },
+                        child: Text('Register'),
+                      ),
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).push(
