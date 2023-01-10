@@ -4,6 +4,7 @@ import 'package:flutter/src/widgets/framework.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:habit_app/Screens/NewPostScreen.dart';
 import 'package:habit_app/Widgets/Logout.dart';
+import 'package:habit_app/Widgets/LeftDrawer.dart';
 
 import '../Widgets/Feed.dart';
 
@@ -21,9 +22,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: LeftDrawer(),
       appBar: AppBar(
         title: Text('Feed'),
-        automaticallyImplyLeading: false,
+        // automaticallyImplyLeading: false,
         actions: [
           Logout(),
         ],
