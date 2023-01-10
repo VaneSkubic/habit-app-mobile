@@ -1,36 +1,20 @@
-import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
-import 'package:flutter/src/widgets/container.dart';
-import 'package:flutter/src/widgets/framework.dart';
-import 'package:habit_app/Screens/HomeScreen.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/http.dart';
 
 class NewPostScreen extends StatefulWidget {
-  const NewPostScreen({super.key});
-
   @override
-  State<NewPostScreen> createState() => _NewPostScreenState();
+  _NewPostScreenState createState() => _NewPostScreenState();
 }
 
 class _NewPostScreenState extends State<NewPostScreen> {
   final storage = const FlutterSecureStorage();
-  final _formKey = GlobalKey<FormState>();
-
-  String _caption = '';
-  String content = '';
-  String token = '';
-  String base = '';
-  Future<Uint8List>? imageBytes;
-
-  void pickImage() async {
-    final ImagePicker _picker = ImagePicker();
-    XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    imageBytes = image!.readAsBytes();
-  }
+  final _captionController = TextEditingController();
+  File? _image;
+  final _imagePicker = ImagePicker();
 
   Future<String> getToken() async {
     var returnToken = await storage.read(key: 'token');
@@ -41,55 +25,74 @@ class _NewPostScreenState extends State<NewPostScreen> {
     }
   }
 
-  void post() async {
-    token = await getToken();
+  void _sendPost(String caption, File image) async {
+    try {
+      var token = await getToken();
+      var uri = Uri.parse("https://habit.gnus.co.uk/api/posts/create");
+      var request = new MultipartRequest("POST", uri);
 
-    var request = http.MultipartRequest(
-      'POST',
-      Uri.parse('https://habit.gnus.co.uk/api/posts/create'),
-    );
+      // create multipart using filepath, string or bytes
+      var multipartFile = await http.MultipartFile.fromPath(
+        'media',
+        image.path,
+      );
+      // add file to multipart
+      request.files.add(multipartFile);
 
-    // var imageData = imageBytes.buffer.asUint8List();
+      request.fields['caption'] = caption;
+      request.fields['habit_id'] = '1';
+      request.headers['Content-Type'] = 'application/json';
+      request.headers['Accept'] = 'application/json';
+      request.headers['Authorization'] = 'Bearer ' + token;
 
-    // if (imageBytes != null) {
-    //   var image = http.MultipartFile.fromBytes('image', imageData,
-    //       filename: 'image.png');
-    //   request.files.add(image);
-    // }
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
 
-    request.fields['caption'] = 'test';
-    var response = await request.send();
-
-    // final response = await http.post(
-    //   Uri.parse('https://habit.gnus.co.uk/api/posts/create'),
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //     'Accept': 'application/json',
-    //     'Authorization': 'Bearer $token',
-    //   },
-    //   body: '''{
-    //     "media": "null",
-    //     "caption": "$_caption",
-    //     "habit_id": "1"
-    //   }''',
-    // );
-
-    // if (response.statusCode > 200 && response.statusCode < 300) {
-    //   _caption = '';
-
-    //   Navigator.of(context).push(
-    //     MaterialPageRoute(
-    //       builder: (context) => HomeScreen(),
-    //     ),
-    //   );
-    //   setState(() {
-    //     content = data;
-    //   });
-    // } else {
-    //   setState(() {
-    //     content = response.body;
-    //   });
-    // }
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        print('Post sent successfully');
+        Navigator.pop(context);
+      } else {
+        print(
+            'An error occurred while sending the post. ${response.reasonPhrase}');
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('Error'),
+              content: Text(response.body),
+              actions: <Widget>[
+                TextButton(
+                  child: Text('Ok'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      }
+    } catch (e) {
+      print(e);
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Error'),
+            content: Text(
+                'An error occurred while sending the post. Please try again later.'),
+            actions: <Widget>[
+              TextButton(
+                child: Text('Ok'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
+      );
+    }
   }
 
   @override
@@ -98,46 +101,65 @@ class _NewPostScreenState extends State<NewPostScreen> {
       appBar: AppBar(
         title: Text('New Post'),
       ),
-      body: Form(
-        key: _formKey,
-        child: Column(
-          children: [
-            TextFormField(
-              decoration: InputDecoration(labelText: 'Caption'),
-              validator: (value) {
-                if (value != null && value.isEmpty) {
-                  return 'Please enter an email';
-                }
-                return null;
-              },
-              onChanged: (value) => _caption = value != null ? value : '',
-            ),
-            SizedBox(height: 20),
-            MaterialButton(
-              color: Colors.blue,
-              child: const Text(
-                "Pick Image from Camera",
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontWeight: FontWeight.bold,
+      body: ListView(
+        children: [
+          Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Column(
+              children: <Widget>[
+                TextField(
+                  controller: _captionController,
+                  decoration: InputDecoration(
+                    hintText: 'Enter a caption...',
+                  ),
                 ),
-              ),
-              onPressed: () {
-                pickImage();
-              },
+                SizedBox(height: 16.0),
+                _image == null
+                    ? Text('No image selected.')
+                    : Image.file(_image!),
+                SizedBox(height: 16.0),
+                ElevatedButton(
+                  child: Text('Pick an image'),
+                  onPressed: () async {
+                    final pickedFile = await _imagePicker.pickImage(
+                      source: ImageSource.gallery,
+                    );
+                    setState(() {
+                      _image = File.fromUri(Uri.parse(pickedFile!.path));
+                    });
+                  },
+                ),
+                SizedBox(height: 16.0),
+                ElevatedButton(
+                  child: Text('Send'),
+                  onPressed: () {
+                    if (_image == null) {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            title: Text('Error'),
+                            content: Text('You must pick an image.'),
+                            actions: <Widget>[
+                              TextButton(
+                                child: Text('Ok'),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                      return;
+                    }
+                    _sendPost(_captionController.text, _image!);
+                  },
+                ),
+              ],
             ),
-            SizedBox(height: 20),
-            // Text(content),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                // post();
-              },
-              child: Text('Make Post'),
-            ),
-            Text(content.length > 300 ? content.substring(0, 300) : ''),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
